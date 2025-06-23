@@ -352,4 +352,34 @@ if uploaded_file and run_btn:
             st.download_button("ðŸ“¥ Download Results as CSV", csv, "sentiment_results.csv", "text/csv")
     except Exception as e:
         st.error(f"âš ï¸ Error: {str(e)}")
-      
+
+
+
+
+      Sheet 1: Reviews (Paste starting in cell A1)
+Review
+I love this product, it's amazing!
+Very poor quality and bad service.
+It's not good at all.
+I had an excellent time
+Not a terrible experience
+No great outcome from this.
+Absolutely awful, hate it
+This was not amazing
+Never buying this again
+Great service, not bad at all
+Not bad, actually decent
+The product is good
+The product is not good
+I hate it
+Not the best but not the worst either
+
+📄 Sheet 2: Keywords (Paste starting in cell A1)
+Positive Words	Negative Words	Negation Words
+good	bad	not
+great	poor	no
+excellent	terrible	never
+amazing	awful	
+love	hate	
+best	worst	
+decent	
