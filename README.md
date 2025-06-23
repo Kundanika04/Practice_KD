@@ -249,3 +249,107 @@ Can’t detect sarcasm or double negatives
 Doesn’t understand sentence structure
 
 Negation detection is approximate
+
+
+
+-----------------------------------
+
+
+# sentiment_app.py
+import streamlit as st
+import pandas as pd
+import re
+
+from transformers import pipeline
+from nltk.sentiment import SentimentIntensityAnalyzer
+from textblob import TextBlob
+import nltk
+
+nltk.download('vader_lexicon')
+
+# === Setup models once ===
+@st.cache_resource
+def load_bert():
+    return pipeline("sentiment-analysis", device=-1)
+
+@st.cache_resource
+def load_vader():
+    return SentimentIntensityAnalyzer()
+
+bert_classifier = load_bert()
+vader_analyzer = load_vader()
+
+# === Text cleaning ===
+def clean_text(text):
+    if not isinstance(text, str):
+        return ""
+    text = text.lower()
+    text = re.sub(r'[^a-zA-Z\s]', '', text)
+    return text.strip()
+
+# === Sentiment functions ===
+def get_bert_sentiment(text):
+    if not text or str(text).strip().lower() == "nan":
+        return "No Review", None
+    result = bert_classifier(text[:1000])[0]
+    return result["label"], round(result["score"], 3)
+
+def get_vader_sentiment(text):
+    if not text or str(text).strip().lower() == "nan":
+        return "No Review", None
+    scores = vader_analyzer.polarity_scores(text)
+    compound = scores["compound"]
+    label = "POSITIVE" if compound >= 0.05 else "NEGATIVE" if compound <= -0.05 else "NEUTRAL"
+    return label, round(compound, 3)
+
+def get_textblob_sentiment(text):
+    if not text or str(text).strip().lower() == "nan":
+        return "No Review", None
+    polarity = TextBlob(text).sentiment.polarity
+    label = "POSITIVE" if polarity > 0 else "NEGATIVE" if polarity < 0 else "NEUTRAL"
+    return label, round(polarity, 3)
+
+# === Streamlit UI ===
+st.title("ðŸ“Š Excel Review Sentiment Analyzer")
+st.markdown("Upload an Excel or CSV file containing a **Review_Text** column.")
+
+uploaded_file = st.file_uploader("Upload your file", type=["csv", "xlsx"])
+model_choice = st.selectbox("Choose Sentiment Analysis Model", ["BERT", "VADER", "TextBlob"])
+run_btn = st.button("Run Sentiment Analysis")
+
+if uploaded_file and run_btn:
+    try:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+        
+        if "Review_Text" not in df.columns:
+            st.error("âŒ 'Review_Text' column not found in file.")
+        else:
+            df["Cleaned_Review"] = df["Review_Text"].astype(str).apply(clean_text)
+
+            sentiments = []
+            scores = []
+            with st.spinner("Analyzing..."):
+                for text in df["Cleaned_Review"]:
+                    if model_choice == "BERT":
+                        label, score = get_bert_sentiment(text)
+                    elif model_choice == "VADER":
+                        label, score = get_vader_sentiment(text)
+                    else:
+                        label, score = get_textblob_sentiment(text)
+                    sentiments.append(label)
+                    scores.append(score)
+            
+            df["Sentiment"] = sentiments
+            df["Score"] = scores
+            st.success("âœ… Sentiment analysis complete!")
+            st.dataframe(df[["Review_Text", "Sentiment", "Score"]])
+
+            # Download link
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("ðŸ“¥ Download Results as CSV", csv, "sentiment_results.csv", "text/csv")
+    except Exception as e:
+        st.error(f"âš ï¸ Error: {str(e)}")
+      
